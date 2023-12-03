@@ -1,0 +1,80 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require 'yaml'
+require 'shellwords'
+require 'optparse'
+
+VERSION = 'v1.0.0'
+
+EXCLUSION_STAGES_LIST = [
+  'stages',
+  'variables',
+  'before_script',
+  '.base_deploy',
+  '.base_build',
+  '.base_test',
+  '.shared_review',
+  '.restart'
+].freeze
+
+SUBTEXT = <<~HELP
+  Commonly used command are:
+    list :        lists all jobs in pipeline
+    generate :    generates command with variables from selected job
+
+  See 'main COMMAND -h' for more information on a specific command.
+HELP
+
+options = {}
+
+global = OptionParser.new do |opts|
+  opts.banner = 'Usage: main [subcommand [options]]'
+  opts.separator ''
+  opts.separator SUBTEXT
+end
+
+subcommands = {
+  'list' => OptionParser.new do |opts|
+    opts.on('-f=s', '--file FILE', 'gitlab-ci pipeline file') do |v|
+      options[:file] = v
+    end
+  end,
+  'generate' => OptionParser.new do |opts|
+    opts.on('-f=s', '--file FILE', 'gitlab-ci pipeline file') do |v|
+      options[:file] = v
+    end
+    opts.on('-j=s', '--job', 'Job to construct command') do |v|
+      options[:job] = v
+    end
+  end
+}
+
+global.order!
+command = ARGV[0]
+subcommands[command].order!
+subcommands[command].parse!
+
+if ARGV.include? 'list'
+  if options[:file]
+    raw_data = YAML.load_file(options[:file], aliases: true)
+    raw_data.each_key { |key|  puts to_s(key) unless EXCLUSION_STAGES_LIST.include? key }
+  else
+    puts 'Error: Pipeline file is missing, please provide path via -f option.'
+  end
+
+elsif ARGV.include? 'generate'
+  formatted_vars = ''
+
+  if options[:job]
+    raw_data = YAML.load_file(options[:file], aliases: true)
+    global_vars = raw_data['variables']
+    local_vars = raw_data[options[:job]]['variables'] if raw_data[options[:job]].key? 'variables'
+
+    joined_vars = global_vars
+    local_vars.each { |k, v| joined_vars[k] = v }
+    joined_vars.each { |k, v| formatted_vars << "#{k}=#{v} " }
+
+    puts "#{formatted_vars} #{raw_data[options[:job]]['script'][0]}"
+  end
+end
