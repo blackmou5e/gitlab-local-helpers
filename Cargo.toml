@@ -1,0 +1,8 @@
+[package]
+name = "gitlab-local-helpers"
+version = "0.1.0"
+edition = "2021"
+authors = ["George Nikishin <mail2giz@gmail.com>"]
+
+[dependencies]
+gitlab_ci_parser = "0.0.5"
